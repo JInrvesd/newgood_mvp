@@ -26,12 +26,13 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
 
     return {
         "personal": {
-            "name": "",
+            "name": _extract_name(raw_text),
+            "birthDate": "",
             "phone": _extract_phone(raw_text),
             "email": _extract_email(raw_text),
             "address": "",
-            "linkedin": _extract_linkedin(raw_text),
-            "portfolio": "",
+            "linkedinUrl": _extract_linkedin(raw_text),
+            "portfolioUrl": "",
         },
         "education": [],
         "experience": [],
@@ -41,7 +42,10 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
             "languages": [],
             "activities": [],
         },
-        "cover_letter": {
+        "careerDetails": [],
+        "coverLetter": {
+            "mode": "structured",
+            "freeText": "",
             "growth": "",
             "personality": "",
             "motivation": "",
@@ -49,6 +53,15 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
         },
         "_raw_text": raw_text,
     }
+
+
+def _extract_name(text: str) -> str:
+    """첫 번째 줄에서 한국어 이름(2~4글자 한글) 추출 시도"""
+    for line in text.splitlines():
+        line = line.strip()
+        if re.fullmatch(r'[가-힣]{2,4}', line):
+            return line
+    return ""
 
 
 def _extract_email(text: str) -> str:
