@@ -221,57 +221,72 @@ KSA(Knowledge-Skill-Attitude) 프레임워크에 따라 핵심 역량을 추출�
 - 직무와의 관련성이 높은 순서대로 나열합니다
 - 중복되거나 지나치게 일반적인 항목은 제외합니다
 
-## 추출 소스 우선순위
-1. 경력 사항 (가장 중요한 역량 근거)
-2. 보유 스킬/역량 직접 기재 내용
-3. 자격증/어학 성적
-4. 학력 (전공, 관련 과목)
-5. 자기소개서 (태도 역량의 주요 근거)
-6. 기타 활동 (봉사, 대외활동 등)
-
 응답은 반드시 아래 JSON 형식으로만 출력하세요. JSON 외 텍스트는 포함하지 마세요:
 {
-  "knowledge": [
-    "<보유 지식/전문성 항목>"
-  ],
-  "skill": [
-    "<보유 기술/능력 항목>"
-  ],
-  "attitude": [
-    "<태도/역량 항목>"
-  ],
+  "knowledge": ["<보유 지식/전문성 항목>"],
+  "skill": ["<보유 기술/능력 항목>"],
+  "attitude": ["<태도/역량 항목>"],
   "summary": "<KSA 역량 종합 요약 2-3문장>"
 }
 
-각 배열에는 최소 3개 이상의 항목을 포함하세요.
-이력서 내용이 부족하여 추출할 수 없는 영역이 있다면, 해당 배열에 "이력서에서 관련 정보를 확인할 수 없습니다"를 포함하세요."""
+각 배열에는 최소 3개 이상의 항목을 포함하세요."""
+
+PARSE_SYSTEM_PROMPT = """\
+당신은 한국 이력서 파싱 전문가입니다.
+주어진 이력서 원문 텍스트를 분석하여 아래 JSON 스키마에 맞게 구조화된 데이터를 추출합니다.
+
+## 추출 규칙
+- 원문에 명시된 내용만 추출합니다. 없는 정보는 빈 문자열 또는 빈 배열로 남깁니다.
+- 날짜 형식: "YYYY-MM" (예: "2020-03"). 연도만 있으면 "YYYY-01".
+- 재직 중이면 endDate를 빈 문자열(""), isCurrent를 true로 설정합니다.
+- 역량/스킬 level은 반드시 "초급", "중급", "고급" 중 하나로 설정합니다.
+- 자기소개서가 있으면 freeText에 전체 내용을 담고 mode를 "free"로 설정합니다.
+- 모든 응답은 JSON 형식으로만 출력합니다. JSON 외 텍스트는 포함하지 마세요.
+
+응답 JSON 스키마:
+{
+  "personal": {
+    "name": "",
+    "birthDate": "",
+    "phone": "",
+    "email": "",
+    "address": "",
+    "linkedinUrl": "",
+    "portfolioUrl": ""
+  },
+  "education": [
+    {"schoolName": "", "major": "", "enrollDate": "", "graduateDate": "", "degree": "", "gpa": ""}
+  ],
+  "experience": [
+    {"companyName": "", "position": "", "startDate": "", "endDate": "", "isCurrent": false, "description": ""}
+  ],
+  "competency": [
+    {"name": "", "level": "중급", "description": ""}
+  ],
+  "others": {
+    "certificates": [{"name": "", "date": "", "issuer": ""}],
+    "languages": [{"language": "", "level": "", "score": ""}],
+    "activities": [{"name": "", "date": "", "description": ""}]
+  },
+  "coverLetter": {
+    "mode": "structured",
+    "freeText": "",
+    "growth": "",
+    "personality": "",
+    "motivation": "",
+    "aspiration": ""
+  }
+}"""
+
 
 # ---------------------------------------------------------------------------
 # Phase 설정 배열
 # ---------------------------------------------------------------------------
 
 PHASE_CONFIGS = [
-    {
-        "phase": 1,
-        "name": "가시성 점수 분석",
-        "estimated_seconds": 15,
-        "timeout_seconds": 60,
-        "system_prompt": PHASE1_SYSTEM_PROMPT,
-    },
-    {
-        "phase": 2,
-        "name": "상세 피드백 & 구조화",
-        "estimated_seconds": 25,
-        "timeout_seconds": 90,
-        "system_prompt": PHASE2_SYSTEM_PROMPT,
-    },
-    {
-        "phase": 3,
-        "name": "KSA 역량 정리",
-        "estimated_seconds": 20,
-        "timeout_seconds": 60,
-        "system_prompt": PHASE3_SYSTEM_PROMPT,
-    },
+    {"phase": 1, "name": "가시성 점수 분석", "estimated_seconds": 15, "timeout_seconds": 60, "system_prompt": PHASE1_SYSTEM_PROMPT},
+    {"phase": 2, "name": "상세 피드백 & 구조화", "estimated_seconds": 25, "timeout_seconds": 90, "system_prompt": PHASE2_SYSTEM_PROMPT},
+    {"phase": 3, "name": "KSA 역량 정리", "estimated_seconds": 20, "timeout_seconds": 60, "system_prompt": PHASE3_SYSTEM_PROMPT},
 ]
 
 # ---------------------------------------------------------------------------
@@ -279,26 +294,7 @@ PHASE_CONFIGS = [
 # ---------------------------------------------------------------------------
 
 
-async def call_openrouter(
-    system_prompt: str,
-    user_content: str,
-    timeout_seconds: float = 60.0,
-) -> str:
-    """
-    OpenRouter API 호출 (non-streaming, JSON 응답).
-
-    Args:
-        system_prompt: 시스템 프롬프트
-        user_content: 사용자 메시지 (이력서 데이터 등)
-        timeout_seconds: HTTP 요청 타임아웃 (초)
-
-    Returns:
-        LLM 응답 텍스트 (JSON 문자열)
-
-    Raises:
-        httpx.HTTPStatusError: API 호출 실패 시
-        httpx.TimeoutException: 타임아웃 시
-    """
+async def call_openrouter(system_prompt: str, user_content: str, timeout_seconds: float = 60.0) -> str:
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
         response = await client.post(
             f"{settings.openrouter_base_url}/chat/completions",
@@ -329,44 +325,24 @@ async def call_openrouter(
 
 
 def extract_json(text: str) -> dict:
-    """
-    LLM 응답에서 JSON을 안전하게 추출합니다.
-    코드블록(```json ... ```) 래핑을 제거하고 파싱합니다.
-
-    1차: 전체 텍스트 직접 파싱
-    2차: 코드블록 제거 후 파싱
-    3차: 정규식으로 첫 번째 JSON 객체 추출 후 파싱
-    """
-    # 1차 시도: 원본 텍스트 직접 파싱
     stripped = text.strip()
     try:
         return json.loads(stripped)
     except json.JSONDecodeError:
         pass
-
-    # 2차 시도: 코드블록 제거 후 파싱
     cleaned = re.sub(r"```json\s*", "", stripped)
-    cleaned = re.sub(r"```\s*", "", cleaned)
-    cleaned = cleaned.strip()
+    cleaned = re.sub(r"```\s*", "", cleaned).strip()
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         pass
-
-    # 3차 시도: 정규식으로 JSON 객체 추출
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
             pass
-
-    # 모든 시도 실패 시 예외
-    raise json.JSONDecodeError(
-        "LLM 응답에서 유효한 JSON을 추출할 수 없습니다",
-        text,
-        0,
-    )
+    raise json.JSONDecodeError("LLM 응답에서 유효한 JSON을 추출할 수 없습니다", text, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -374,66 +350,20 @@ def extract_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-async def save_analysis_result(
-    resume_id: str,
-    phase_data: dict,
-    version: int,
-) -> None:
-    """
-    분석 결과를 Supabase analysis_results 테이블에 저장합니다.
-    동일 resume_id + version 조합이 있으면 JSONB merge, 없으면 새로 생성합니다.
-
-    Args:
-        resume_id: 이력서 UUID
-        phase_data: Phase별 분석 결과 (예: {"phase1": {...}})
-        version: 분석 버전 (1~5)
-    """
+async def save_analysis_result(resume_id: str, phase_data: dict, version: int) -> None:
     db = get_supabase()
-
     try:
-        # 동일 resume_id + version 조합 조회
-        existing = (
-            db.table("analysis_results")
-            .select("*")
-            .eq("resume_id", resume_id)
-            .eq("version", version)
-            .limit(1)
-            .execute()
-        )
-
+        existing = db.table("analysis_results").select("*").eq("resume_id", resume_id).eq("version", version).limit(1).execute()
         if existing.data:
-            # 기존 결과에 JSONB merge
             current_data = existing.data[0].get("result_data", {})
             current_data.update(phase_data)
-            (
-                db.table("analysis_results")
-                .update({"result_data": current_data})
-                .eq("id", existing.data[0]["id"])
-                .execute()
-            )
-            print(
-                f"[LLM] DB 업데이트 완료: resume={resume_id}, version={version}"
-            )
+            db.table("analysis_results").update({"result_data": current_data}).eq("id", existing.data[0]["id"]).execute()
+            print(f"[LLM] DB 업데이트 완료: resume={resume_id}, version={version}")
         else:
-            # 새 결과 생성
-            (
-                db.table("analysis_results")
-                .insert(
-                    {
-                        "resume_id": resume_id,
-                        "version": version,
-                        "result_data": phase_data,
-                    }
-                )
-                .execute()
-            )
-            print(
-                f"[LLM] DB 신규 저장 완료: resume={resume_id}, version={version}"
-            )
-
+            db.table("analysis_results").insert({"resume_id": resume_id, "version": version, "result_data": phase_data}).execute()
+            print(f"[LLM] DB 신규 저장 완료: resume={resume_id}, version={version}")
     except Exception as e:
         print(f"[LLM] DB 저장 실패: resume={resume_id}, error={e}")
-        # DB 저장 실패가 분석 흐름을 중단시키지 않도록 예외를 전파하지 않음
 
 
 # ---------------------------------------------------------------------------
@@ -441,58 +371,24 @@ async def save_analysis_result(
 # ---------------------------------------------------------------------------
 
 
-async def analyze_resume_stream(
-    uuid: str,
-    form_data: dict,
-) -> AsyncGenerator[dict, None]:
-    """
-    3단계 SSE 스트리밍 분석을 수행합니다.
-    각 단계의 시작(phase_start) / 완료(phase_complete) 이벤트를 yield하고,
-    모든 단계 완료 시 analysis_done 이벤트를 yield합니다.
-
-    Args:
-        uuid: 이력서 UUID
-        form_data: 7단계 폼 데이터 (JSONB)
-
-    Yields:
-        SSE 이벤트 dict: {"event": str, "data": dict}
-    """
+async def analyze_resume_stream(uuid: str, form_data: dict) -> AsyncGenerator[dict, None]:
     db = get_supabase()
-
-    # 분석 버전 계산 (기존 분석 횟수 + 1, 최대 5)
     try:
-        count_result = (
-            db.table("analysis_results")
-            .select("id", count="exact")
-            .eq("resume_id", uuid)
-            .execute()
-        )
+        count_result = db.table("analysis_results").select("id", count="exact").eq("resume_id", uuid).execute()
         version = (count_result.count or 0) + 1
     except Exception:
         version = 1
 
     if version > 5:
-        yield {
-            "event": "error",
-            "data": {
-                "message": "최대 분석 횟수(5회)를 초과했습니다. 유료 전환을 안내드립니다.",
-                "phase": 0,
-            },
-        }
+        yield {"event": "error", "data": {"message": "최대 분석 횟수(5회)를 초과했습니다. 유료 전환을 안내드립니다.", "phase": 0}}
         return
 
-    # resume 상태를 analyzing으로 업데이트
     try:
-        db.table("resumes").update({"status": "analyzing"}).eq(
-            "id", uuid
-        ).execute()
+        db.table("resumes").update({"status": "analyzing"}).eq("id", uuid).execute()
     except Exception as e:
         print(f"[LLM] resume 상태 업데이트 실패: {e}")
 
-    print(
-        f"[LLM] === 분석 시작 === resume={uuid}, version={version}, "
-        f"time={datetime.now().isoformat()}"
-    )
+    print(f"[LLM] === 분석 시작 === resume={uuid}, version={version}, time={datetime.now().isoformat()}")
 
     accumulated_result = {}
     phase1_result = None
@@ -501,166 +397,97 @@ async def analyze_resume_stream(
         phase_num = config["phase"]
         phase_name = config["name"]
 
-        # Phase Start 이벤트
         print(f"[LLM] Phase {phase_num} 시작: {phase_name}")
-        yield {
-            "event": "phase_start",
-            "data": {
-                "phase": phase_num,
-                "name": phase_name,
-                "estimated_seconds": config["estimated_seconds"],
-            },
-        }
+        yield {"event": "phase_start", "data": {"phase": phase_num, "name": phase_name, "estimated_seconds": config["estimated_seconds"]}}
 
         try:
-            # 유저 프롬프트 구성 (Phase별로 다른 컨텍스트 제공)
             form_data_str = json.dumps(form_data, ensure_ascii=False, indent=2)
-
             if phase_num == 1:
-                user_content = (
-                    "다음 이력서 데이터를 분석하여 가시성 점수를 평가해주세요.\n\n"
-                    f"=== 이력서 데이터 ===\n{form_data_str}"
-                )
+                user_content = f"다음 이력서 데이터를 분석하여 가시성 점수를 평가해주세요.\n\n=== 이력서 데이터 ===\n{form_data_str}"
             elif phase_num == 2:
-                phase1_str = json.dumps(
-                    phase1_result, ensure_ascii=False, indent=2
-                )
-                user_content = (
-                    "다음 이력서의 상세 피드백과 구조화된 데이터를 제공해주세요.\n\n"
-                    f"=== 이력서 데이터 ===\n{form_data_str}\n\n"
-                    f"=== Phase 1 가시성 점수 분석 결과 ===\n{phase1_str}"
-                )
-            else:  # phase 3
-                user_content = (
-                    "다음 이력서에서 KSA(Knowledge-Skill-Attitude) "
-                    "역량을 추출해주세요.\n\n"
-                    f"=== 이력서 데이터 ===\n{form_data_str}"
-                )
+                phase1_str = json.dumps(phase1_result, ensure_ascii=False, indent=2)
+                user_content = f"다음 이력서의 상세 피드백과 구조화된 데이터를 제공해주세요.\n\n=== 이력서 데이터 ===\n{form_data_str}\n\n=== Phase 1 가시성 점수 분석 결과 ===\n{phase1_str}"
+            else:
+                user_content = f"다음 이력서에서 KSA(Knowledge-Skill-Attitude) 역량을 추출해주세요.\n\n=== 이력서 데이터 ===\n{form_data_str}"
 
-            # OpenRouter API 호출
             raw_response = await call_openrouter(
                 system_prompt=config["system_prompt"],
                 user_content=user_content,
                 timeout_seconds=config["timeout_seconds"],
             )
 
-            # JSON 파싱
             try:
                 parsed = extract_json(raw_response)
             except json.JSONDecodeError as parse_err:
-                # JSON 파싱 실패 시 raw text를 fallback으로 반환
-                print(
-                    f"[LLM] Phase {phase_num} JSON 파싱 실패, "
-                    f"raw text fallback: {parse_err}"
-                )
-                parsed = {
-                    "raw_response": raw_response,
-                    "parse_error": str(parse_err),
-                    "_fallback": True,
-                }
+                print(f"[LLM] Phase {phase_num} JSON 파싱 실패, raw text fallback: {parse_err}")
+                parsed = {"raw_response": raw_response, "parse_error": str(parse_err), "_fallback": True}
 
-            # Phase 1 결과 보관 (Phase 2에서 컨텍스트로 활용)
             if phase_num == 1:
                 phase1_result = parsed
 
-            # 누적 결과 업데이트
             phase_key = f"phase{phase_num}"
             accumulated_result[phase_key] = parsed
-
-            # DB 저장 (비동기, 실패해도 분석 계속 진행)
             await save_analysis_result(uuid, {phase_key: parsed}, version)
 
-            # Phase Complete 이벤트
             print(f"[LLM] Phase {phase_num} 완료: {phase_name}")
-            yield {
-                "event": "phase_complete",
-                "data": {
-                    "phase": phase_num,
-                    "name": phase_name,
-                    "data": parsed,
-                },
-            }
+            yield {"event": "phase_complete", "data": {"phase": phase_num, "name": phase_name, "data": parsed}}
 
         except httpx.TimeoutException:
-            error_msg = (
-                f"Phase {phase_num} 분석 시간이 초과되었습니다. "
-                "잠시 후 다시 시도해주세요."
-            )
+            error_msg = f"Phase {phase_num} 분석 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
             print(f"[LLM] Phase {phase_num} 타임아웃: {error_msg}")
-            yield {
-                "event": "error",
-                "data": {
-                    "message": error_msg,
-                    "phase": phase_num,
-                },
-            }
+            yield {"event": "error", "data": {"message": error_msg, "phase": phase_num}}
             return
-
         except httpx.HTTPStatusError as e:
             status_code = e.response.status_code
             if status_code == 429:
-                error_msg = (
-                    "API 요청 한도를 초과했습니다. "
-                    "잠시 후 다시 시도해주세요."
-                )
+                error_msg = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요."
             elif status_code == 401:
                 error_msg = "API 인증에 실패했습니다. 관리자에게 문의하세요."
             elif status_code >= 500:
-                error_msg = (
-                    "AI 서비스에 일시적인 문제가 발생했습니다. "
-                    "잠시 후 다시 시도해주세요."
-                )
+                error_msg = "AI 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
             else:
                 error_msg = f"API 호출 실패 (HTTP {status_code})"
-
-            print(
-                f"[LLM] Phase {phase_num} HTTP 에러: "
-                f"status={status_code}, body={e.response.text[:500]}, msg={error_msg}"
-            )
-            yield {
-                "event": "error",
-                "data": {
-                    "message": error_msg,
-                    "phase": phase_num,
-                },
-            }
+            print(f"[LLM] Phase {phase_num} HTTP 에러: status={status_code}, body={e.response.text[:500]}")
+            yield {"event": "error", "data": {"message": error_msg, "phase": phase_num}}
             return
-
         except Exception as e:
             error_msg = f"분석 중 예상치 못한 오류가 발생했습니다: {str(e)}"
-            print(
-                f"[LLM] Phase {phase_num} 예외: {error_msg}\n"
-                f"{traceback.format_exc()}"
-            )
-            yield {
-                "event": "error",
-                "data": {
-                    "message": error_msg,
-                    "phase": phase_num,
-                },
-            }
+            print(f"[LLM] Phase {phase_num} 예외: {error_msg}\n{traceback.format_exc()}")
+            yield {"event": "error", "data": {"message": error_msg, "phase": phase_num}}
             return
 
-    # 모든 Phase 완료 - resume 상태 업데이트
     try:
-        db.table("resumes").update({"status": "analyzed"}).eq(
-            "id", uuid
-        ).execute()
+        db.table("resumes").update({"status": "analyzed"}).eq("id", uuid).execute()
     except Exception as e:
         print(f"[LLM] resume 최종 상태 업데이트 실패: {e}")
 
-    print(
-        f"[LLM] === 분석 완료 === resume={uuid}, version={version}, "
-        f"time={datetime.now().isoformat()}"
-    )
+    print(f"[LLM] === 분석 완료 === resume={uuid}, version={version}, time={datetime.now().isoformat()}")
+    yield {"event": "analysis_done", "data": {"resume_id": uuid, "total_phases": 3, "saved": True, "version": version}}
 
-    # analysis_done 이벤트
-    yield {
-        "event": "analysis_done",
-        "data": {
-            "resume_id": uuid,
-            "total_phases": 3,
-            "saved": True,
-            "version": version,
-        },
-    }
+
+# ---------------------------------------------------------------------------
+# DOCX 업로드 시 LLM 구조화 파싱
+# ---------------------------------------------------------------------------
+
+
+async def parse_resume_with_llm(raw_text: str):
+    """
+    이력서 원문 텍스트를 LLM으로 구조화된 form_data로 파싱합니다.
+    실패 시 None 반환.
+    """
+    user_content = (
+        "다음 이력서 원문을 분석하여 JSON 스키마에 맞게 구조화해 주세요.\n\n"
+        f"=== 이력서 원문 ===\n{raw_text}"
+    )
+    try:
+        raw_response = await call_openrouter(
+            system_prompt=PARSE_SYSTEM_PROMPT,
+            user_content=user_content,
+            timeout_seconds=60.0,
+        )
+        parsed = extract_json(raw_response)
+        parsed["_raw_text"] = raw_text
+        return parsed
+    except Exception as e:
+        print(f"[LLM] 이력서 파싱 실패, 기본 구조 반환: {e}")
+        return None
