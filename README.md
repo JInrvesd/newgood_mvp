@@ -221,3 +221,22 @@ npm run dev
 - `.env` 파일은 `.gitignore`에 포함되어 있어 커밋되지 않습니다.
 - 분석은 세션당 최대 5회까지 무료로 제공됩니다.
 - UUID 링크를 아는 누구나 이력서를 조회/수정할 수 있으므로 링크 관리에 주의하세요.
+
+---
+
+## 변경 이력
+
+### v0.1.1 — 2026-03-06
+
+- `POST /api/resumes/upload-docx` 라우트 순서 버그 수정 (`405 Method Not Allowed` 해결)
+- CORS 허용 오리진에 `localhost:5174` 추가
+- 프론트엔드 업로드 URL 오타 수정 (`/upload` → `/upload-docx`)
+- 분석 결과 화면 데이터 키 전면 수정 (ScoreBoard, SectionFeedback, KSASummary)
+- 이력서 생성 후 UUID 추출 키 수정 (`result.uuid` → `result.id`)
+- "직접 수정하기" 클릭 시 기존 이력서 데이터 로드 기능 추가
+
+자세한 내용은 [CHANGELOG.md](./CHANGELOG.md) 참조.
+
+### v0.1.0 — 2026-03-01
+
+최초 릴리즈 (7단계 폼, DOCX 업로드, AI 3단계 분석, DOCX 출력)

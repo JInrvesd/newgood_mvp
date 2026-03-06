@@ -5,8 +5,8 @@
  * - 섹션별 점수 바 차트
  */
 export default function ScoreBoard({ score }) {
-  const totalScore = score.total ?? 0
-  const sections = score.sections || []
+  const totalScore = score.total_score ?? 0
+  const sections = score.section_scores || []
 
   const getScoreColor = (value) => {
     if (value >= 70) return { text: 'text-green-600', bg: 'bg-green-500', ring: 'stroke-green-500' }
@@ -77,7 +77,7 @@ export default function ScoreBoard({ score }) {
                 <div key={idx}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-700 font-medium">
-                      {section.name}
+                      {section.section}
                     </span>
                     <span className={`font-semibold ${sectionColors.text}`}>
                       {section.score ?? 0}점
@@ -97,9 +97,9 @@ export default function ScoreBoard({ score }) {
       </div>
 
       {/* Score Description */}
-      {score.description && (
+      {score.summary && (
         <p className="mt-6 text-gray-600 text-sm bg-gray-50 rounded-lg p-4">
-          {score.description}
+          {score.summary}
         </p>
       )}
     </div>

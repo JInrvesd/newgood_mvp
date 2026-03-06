@@ -27,6 +27,21 @@ async def create_resume(payload: ResumeCreate):
     return result.data[0]
 
 
+@router.post("/upload-docx")
+async def upload_docx(file: UploadFile = File(...)):
+    """DOCX 업로드 → 텍스트 파싱 → form_data 반환"""
+    if not (file.filename or "").endswith(".docx"):
+        raise HTTPException(status_code=400, detail=".docx 파일만 업로드 가능합니다")
+
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다")
+
+    form_data = parse_docx_to_form_data(contents)
+
+    return {"form_data": form_data, "uuid": None}
+
+
 @router.get("/{uuid}")
 async def get_resume(uuid: str):
     """이력서 조회"""
@@ -51,21 +66,6 @@ async def update_resume(uuid: str, payload: ResumeUpdate):
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다")
 
     return result.data[0]
-
-
-@router.post("/upload-docx")
-async def upload_docx(file: UploadFile = File(...)):
-    """DOCX 업로드 → 텍스트 파싱 → form_data 반환"""
-    if not (file.filename or "").endswith(".docx"):
-        raise HTTPException(status_code=400, detail=".docx 파일만 업로드 가능합니다")
-
-    contents = await file.read()
-    if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다")
-
-    form_data = parse_docx_to_form_data(contents)
-
-    return {"form_data": form_data, "uuid": None}
 
 
 @router.get("/{uuid}/result")

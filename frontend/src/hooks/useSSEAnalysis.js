@@ -62,7 +62,7 @@ export default function useSSEAnalysis() {
         setPhases((prev) =>
           prev.map((p) =>
             p.id === phaseId
-              ? { ...p, status: 'done', data: data.result || null }
+              ? { ...p, status: 'done', data: data.data || null }
               : p
           )
         )

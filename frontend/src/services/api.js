@@ -87,7 +87,7 @@ export async function uploadDocx(file) {
   const formData = new FormData()
   formData.append('file', file)
 
-  const res = await fetch(`${API_BASE}/api/resumes/upload`, {
+  const res = await fetch(`${API_BASE}/api/resumes/upload-docx`, {
     method: 'POST',
     body: formData,
   })

@@ -5,7 +5,7 @@
  */
 export default function KSASummary({ ksa }) {
   const knowledge = ksa.knowledge || []
-  const skills = ksa.skills || []
+  const skills = ksa.skill || []
   const attitude = ksa.attitude || []
 
   const hasData =

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import useResumeAccess from '../hooks/useResumeAccess'
-import { createResume } from '../services/api'
+import { createResume, getResume } from '../services/api'
 import StepProgress from '../components/StepForm/StepProgress'
 import Step1Personal from '../components/StepForm/Step1Personal'
 import Step2Education from '../components/StepForm/Step2Education'
@@ -81,10 +81,12 @@ function getInitialFormData() {
 export default function FormPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const { saveUuid } = useResumeAccess()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const editUuid = searchParams.get('uuid')
 
   // Initialize form data from localStorage draft, uploaded data, or fresh
   const [formData, setFormData] = useState(() => {
@@ -93,16 +95,30 @@ export default function FormPage() {
       return { ...getInitialFormData(), ...location.state.uploadedData }
     }
 
-    // Check localStorage draft
-    try {
-      const draft = localStorage.getItem(STORAGE_KEY)
-      if (draft) return JSON.parse(draft)
-    } catch {
-      // ignore parse errors
+    // Check localStorage draft (only if not editing existing resume)
+    if (!editUuid) {
+      try {
+        const draft = localStorage.getItem(STORAGE_KEY)
+        if (draft) return JSON.parse(draft)
+      } catch {
+        // ignore parse errors
+      }
     }
 
     return getInitialFormData()
   })
+
+  // Load existing resume data when editing
+  useEffect(() => {
+    if (!editUuid) return
+    getResume(editUuid)
+      .then((data) => {
+        if (data?.form_data) {
+          setFormData((prev) => ({ ...prev, ...data.form_data }))
+        }
+      })
+      .catch(() => {})
+  }, [editUuid])
 
   // Auto-save to localStorage on formData change
   useEffect(() => {
@@ -149,7 +165,7 @@ export default function FormPage() {
 
     try {
       const result = await createResume(formData)
-      const uuid = result.uuid
+      const uuid = result.id
 
       // Save UUID and clear draft
       saveUuid(uuid)

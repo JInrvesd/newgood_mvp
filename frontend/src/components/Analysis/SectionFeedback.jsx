@@ -6,7 +6,7 @@ import { useState } from 'react'
  * - 개선 전/후 비교 예시 (있을 경우)
  */
 export default function SectionFeedback({ feedback }) {
-  const sections = feedback.sections || []
+  const sections = feedback.detailed_feedback || []
 
   if (sections.length === 0) {
     return (
@@ -66,7 +66,7 @@ function AccordionItem({ section }) {
           </div>
 
           <span className="font-medium text-gray-900 text-left">
-            {section.name}
+            {section.section}
           </span>
         </div>
 
@@ -102,9 +102,9 @@ function AccordionItem({ section }) {
       {isOpen && (
         <div className="px-4 pb-4 space-y-4">
           {/* Feedback Content */}
-          {section.content && (
+          {section.feedback && (
             <p className="text-gray-700 text-sm leading-relaxed">
-              {section.content}
+              {section.feedback}
             </p>
           )}
 
@@ -131,19 +131,19 @@ function AccordionItem({ section }) {
           )}
 
           {/* Before/After Comparison */}
-          {section.before && section.after && (
+          {section.before_example && section.after_example && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-red-50 rounded-lg p-3">
                 <span className="text-xs font-semibold text-red-600 block mb-1">
                   개선 전
                 </span>
-                <p className="text-sm text-gray-700">{section.before}</p>
+                <p className="text-sm text-gray-700">{section.before_example}</p>
               </div>
               <div className="bg-green-50 rounded-lg p-3">
                 <span className="text-xs font-semibold text-green-600 block mb-1">
                   개선 후
                 </span>
-                <p className="text-sm text-gray-700">{section.after}</p>
+                <p className="text-sm text-gray-700">{section.after_example}</p>
               </div>
             </div>
           )}

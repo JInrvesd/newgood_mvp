@@ -79,11 +79,11 @@ export default function ResultPage() {
   }
 
   // Extract result data with safe fallbacks
-  const resultData = result?.result_data || result || {}
-  const score = resultData.score || {}
-  const feedback = resultData.feedback || {}
-  const ksa = resultData.ksa || {}
-  const version = result?.version || 1
+  const analysisData = result?.analysis?.result_data || {}
+  const score = analysisData.phase1 || {}
+  const feedback = analysisData.phase2 || {}
+  const ksa = analysisData.phase3 || {}
+  const version = result?.analysis?.version || 1
 
   return (
     <div className="min-h-screen bg-gray-50">
