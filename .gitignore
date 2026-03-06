@@ -1,0 +1,47 @@
+# Claude Code 개인 설정 (커밋 금지)
+.claude/
+
+# 환경변수 (절대 커밋 금지)
+.env
+*.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# 로그
+*.log
+/tmp/
+
+# 업로드 임시파일
+*.docx.tmp
+uploads/
