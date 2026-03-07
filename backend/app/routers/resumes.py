@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from app.models.schemas import ResumeCreate, ResumeUpdate
 from app.db.supabase_client import get_supabase
 from app.services.parser_service import parse_docx_to_form_data
+from app.services.llm_service import parse_resume_with_llm
 import uuid as uuid_lib
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
@@ -37,7 +38,24 @@ async def upload_docx(file: UploadFile = File(...)):
     if len(contents) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다")
 
-    form_data = parse_docx_to_form_data(contents)
+    # 1차: 기본 텍스트 추출 (regex)
+    basic_data = parse_docx_to_form_data(contents)
+
+    # 2차: LLM 구조화 파싱 (실패 시 기본 데이터 사용)
+    llm_data = await parse_resume_with_llm(basic_data["_raw_text"])
+    if llm_data:
+        # regex로 추출한 값이 LLM보다 정확할 수 있으므로 빈 값만 덮어쓰기
+        personal = llm_data.get("personal", {})
+        if not personal.get("phone") and basic_data["personal"].get("phone"):
+            personal["phone"] = basic_data["personal"]["phone"]
+        if not personal.get("email") and basic_data["personal"].get("email"):
+            personal["email"] = basic_data["personal"]["email"]
+        if not personal.get("linkedinUrl") and basic_data["personal"].get("linkedinUrl"):
+            personal["linkedinUrl"] = basic_data["personal"]["linkedinUrl"]
+        llm_data["personal"] = personal
+        form_data = llm_data
+    else:
+        form_data = basic_data
 
     return {"form_data": form_data, "uuid": None}
 

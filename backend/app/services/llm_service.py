@@ -246,6 +246,72 @@ KSA(Knowledge-Skill-Attitude) 프레임워크에 따라 핵심 역량을 추출�
 각 배열에는 최소 3개 이상의 항목을 포함하세요.
 이력서 내용이 부족하여 추출할 수 없는 영역이 있다면, 해당 배열에 "이력서에서 관련 정보를 확인할 수 없습니다"를 포함하세요."""
 
+PARSE_SYSTEM_PROMPT = """\
+당신은 한국 이력서 파싱 전문가입니다.
+주어진 이력서 원문 텍스트를 분석하여 아래 JSON 스키마에 맞게 구조화된 데이터를 추출합니다.
+
+## 추출 규칙
+- 원문에 명시된 내용만 추출합니다. 없는 정보는 빈 문자열 또는 빈 배열로 남깁니다.
+- 날짜 형식: "YYYY-MM" (예: "2020-03"). 연도만 있으면 "YYYY-01".
+- 재직 중이면 endDate를 빈 문자열(""), isCurrent를 true로 설정합니다.
+- 역량/스킬 level은 반드시 "초급", "중급", "고급" 중 하나로 설정합니다.
+- 자기소개서가 있으면 freeText에 전체 내용을 담고 mode를 "free"로 설정합니다.
+- 모든 응답은 JSON 형식으로만 출력합니다. JSON 외 텍스트는 포함하지 마세요.
+
+응답 JSON 스키마:
+{
+  "personal": {
+    "name": "",
+    "birthDate": "",
+    "phone": "",
+    "email": "",
+    "address": "",
+    "linkedinUrl": "",
+    "portfolioUrl": ""
+  },
+  "education": [
+    {
+      "schoolName": "",
+      "major": "",
+      "enrollDate": "",
+      "graduateDate": "",
+      "degree": "",
+      "gpa": ""
+    }
+  ],
+  "experience": [
+    {
+      "companyName": "",
+      "position": "",
+      "startDate": "",
+      "endDate": "",
+      "isCurrent": false,
+      "description": ""
+    }
+  ],
+  "competency": [
+    {
+      "name": "",
+      "level": "중급",
+      "description": ""
+    }
+  ],
+  "others": {
+    "certificates": [{ "name": "", "date": "", "issuer": "" }],
+    "languages": [{ "language": "", "level": "", "score": "" }],
+    "activities": [{ "name": "", "date": "", "description": "" }]
+  },
+  "coverLetter": {
+    "mode": "structured",
+    "freeText": "",
+    "growth": "",
+    "personality": "",
+    "motivation": "",
+    "aspiration": ""
+  }
+}"""
+
+
 # ---------------------------------------------------------------------------
 # Phase 설정 배열
 # ---------------------------------------------------------------------------
@@ -664,3 +730,38 @@ async def analyze_resume_stream(
             "version": version,
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# DOCX 업로드 시 LLM 구조화 파싱
+# ---------------------------------------------------------------------------
+
+
+async def parse_resume_with_llm(raw_text: str) -> dict:
+    """
+    이력서 원문 텍스트를 LLM으로 구조화된 form_data로 파싱합니다.
+
+    Args:
+        raw_text: DOCX에서 추출한 원문 텍스트
+
+    Returns:
+        프론트엔드 form_data 스키마에 맞는 dict.
+        LLM 호출 실패 시 빈 구조 반환.
+    """
+    user_content = (
+        "다음 이력서 원문을 분석하여 JSON 스키마에 맞게 구조화해 주세요.\n\n"
+        f"=== 이력서 원문 ===\n{raw_text}"
+    )
+
+    try:
+        raw_response = await call_openrouter(
+            system_prompt=PARSE_SYSTEM_PROMPT,
+            user_content=user_content,
+            timeout_seconds=60.0,
+        )
+        parsed = extract_json(raw_response)
+        parsed["_raw_text"] = raw_text
+        return parsed
+    except Exception as e:
+        print(f"[LLM] 이력서 파싱 실패, 기본 구조 반환: {e}")
+        return None
