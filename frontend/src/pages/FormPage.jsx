@@ -33,6 +33,7 @@ function getInitialFormData() {
       address: '',
       linkedinUrl: '',
       portfolioUrl: '',
+      photoData: '',
     },
     education: [
       {
@@ -88,14 +89,11 @@ export default function FormPage() {
   const [submitError, setSubmitError] = useState(null)
   const editUuid = searchParams.get('uuid')
 
-  // Initialize form data from localStorage draft, uploaded data, or fresh
   const [formData, setFormData] = useState(() => {
-    // Check if uploaded data was passed via navigation state
     if (location.state?.uploadedData) {
       return { ...getInitialFormData(), ...location.state.uploadedData }
     }
 
-    // Check localStorage draft (only if not editing existing resume)
     if (!editUuid) {
       try {
         const draft = localStorage.getItem(STORAGE_KEY)
@@ -108,7 +106,6 @@ export default function FormPage() {
     return getInitialFormData()
   })
 
-  // Load existing resume data when editing
   useEffect(() => {
     if (!editUuid) return
     getResume(editUuid)
@@ -120,7 +117,6 @@ export default function FormPage() {
       .catch(() => {})
   }, [editUuid])
 
-  // Auto-save to localStorage on formData change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formData))
@@ -129,7 +125,6 @@ export default function FormPage() {
     }
   }, [formData])
 
-  // Sync careerDetails with experience entries
   useEffect(() => {
     setFormData((prev) => {
       const newDetails = prev.experience.map((exp, idx) => {
@@ -167,7 +162,6 @@ export default function FormPage() {
       const result = await createResume(formData)
       const uuid = result.id
 
-      // Save UUID and clear draft
       saveUuid(uuid)
       localStorage.removeItem(STORAGE_KEY)
 
@@ -210,7 +204,6 @@ export default function FormPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
@@ -233,7 +226,6 @@ export default function FormPage() {
         </div>
       </header>
 
-      {/* Form Content */}
       <main className="max-w-2xl mx-auto px-4 py-8">
         {submitError && (
           <div

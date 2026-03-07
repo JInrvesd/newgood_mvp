@@ -1,12 +1,37 @@
+import { useRef } from 'react'
+
 /**
  * Step 1: 기본정보
- * 이름, 생년월일, 연락처, 이메일, 주소, LinkedIn/포트폴리오 URL
+ * 이름, 생년월일, 연락처, 이메일, 주소, LinkedIn/포트폴리오 URL, 사진
  */
 export default function Step1Personal({ formData, updateFormData, goNext }) {
   const personal = formData.personal
+  const fileInputRef = useRef(null)
 
   const handleChange = (field, value) => {
     updateFormData('personal', { ...personal, [field]: value })
+  }
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // 5MB 이하 이미지만 허용
+    if (file.size > 5 * 1024 * 1024) {
+      alert('사진은 5MB 이하의 파일만 업로드 가능합니다.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      handleChange('photoData', ev.target.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handlePhotoRemove = () => {
+    handleChange('photoData', '')
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleSubmit = (e) => {
@@ -24,6 +49,65 @@ export default function Step1Personal({ formData, updateFormData, goNext }) {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm p-6 space-y-5">
+        {/* 사진 업로드 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            증명사진
+            <span className="ml-1 text-xs text-gray-400 font-normal">
+              (선택 · JPG/PNG · 5MB 이하)
+            </span>
+          </label>
+          <div className="flex items-center gap-4">
+            {/* 사진 미리보기 or 빈 박스 */}
+            <div
+              className="w-24 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {personal.photoData ? (
+                <img
+                  src={personal.photoData}
+                  alt="증명사진 미리보기"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center text-gray-400 text-xs px-2">
+                  <div className="text-2xl mb-1">📷</div>
+                  <div>클릭하여<br />업로드</div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="block px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all"
+              >
+                사진 선택
+              </button>
+              {personal.photoData && (
+                <button
+                  type="button"
+                  onClick={handlePhotoRemove}
+                  className="block px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-all"
+                >
+                  사진 삭제
+                </button>
+              )}
+              <p className="text-xs text-gray-400">
+                업로드한 사진은<br />다운로드 이력서에 포함됩니다.
+              </p>
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/jpg"
+            onChange={handlePhotoChange}
+            className="hidden"
+          />
+        </div>
+
         {/* 이름 */}
         <div>
           <label
