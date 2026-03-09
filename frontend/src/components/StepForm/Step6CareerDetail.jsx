@@ -1,4 +1,20 @@
 import { useState } from 'react'
+import { aiEditCareer } from '../../services/api'
+
+function calcDuration(startDate, endDate, isCurrent) {
+  if (!startDate) return null
+  const start = new Date(startDate + '-01')
+  const end = isCurrent ? new Date() : endDate ? new Date(endDate + '-01') : null
+  if (!end || end < start) return null
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+  if (months < 0) return null
+  const years = Math.floor(months / 12)
+  const remainMonths = months % 12
+  if (years === 0 && remainMonths === 0) return '1개월 미만'
+  if (years === 0) return `${remainMonths}개월`
+  if (remainMonths === 0) return `${years}년`
+  return `${years}년 ${remainMonths}개월`
+}
 
 /**
  * Step 6: 경력 상세
@@ -8,6 +24,9 @@ export default function Step6CareerDetail({ formData, updateFormData, goNext, go
   const experience = formData.experience
   const careerDetails = formData.careerDetails
   const [skillInput, setSkillInput] = useState({})
+  const [aiLoading, setAiLoading] = useState({})
+  const [aiError, setAiError] = useState({})
+  const [aiOriginal, setAiOriginal] = useState({})
 
   const handleChange = (index, field, value) => {
     const updated = careerDetails.map((item, i) =>
@@ -41,6 +60,31 @@ export default function Step6CareerDetail({ formData, updateFormData, goNext, go
       e.preventDefault()
       addSkillTag(index)
     }
+  }
+
+  const handleAiEdit = async (idx) => {
+    const text = careerDetails[idx]?.achievements || ''
+    if (!text.trim()) return
+
+    setAiLoading((prev) => ({ ...prev, [idx]: true }))
+    setAiError((prev) => ({ ...prev, [idx]: null }))
+
+    try {
+      const result = await aiEditCareer(text)
+      // 원본 보관 (되돌리기용)
+      setAiOriginal((prev) => ({ ...prev, [idx]: text }))
+      handleChange(idx, 'achievements', result.text)
+    } catch (e) {
+      setAiError((prev) => ({ ...prev, [idx]: 'AI 편집에 실패했습니다. 다시 시도해 주세요.' }))
+    } finally {
+      setAiLoading((prev) => ({ ...prev, [idx]: false }))
+    }
+  }
+
+  const handleUndo = (idx) => {
+    if (!aiOriginal[idx]) return
+    handleChange(idx, 'achievements', aiOriginal[idx])
+    setAiOriginal((prev) => ({ ...prev, [idx]: null }))
   }
 
   const handleSubmit = (e) => {
@@ -102,6 +146,11 @@ export default function Step6CareerDetail({ formData, updateFormData, goNext, go
                 {exp.startDate && ` | ${exp.startDate}`}
                 {exp.endDate && ` ~ ${exp.endDate}`}
                 {exp.isCurrent && ' ~ 현재'}
+                {exp.startDate && (
+                  <span className="ml-2 text-blue-600 font-medium">
+                    ({calcDuration(exp.startDate, exp.endDate, exp.isCurrent) || ''})
+                  </span>
+                )}
               </p>
             </div>
 
@@ -121,9 +170,40 @@ export default function Step6CareerDetail({ formData, updateFormData, goNext, go
 
             {/* 주요 성과 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                주요 성과
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  주요 성과
+                </label>
+                <div className="flex items-center gap-2">
+                  {aiOriginal[idx] && (
+                    <button
+                      type="button"
+                      onClick={() => handleUndo(idx)}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      되돌리기
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAiEdit(idx)}
+                    disabled={aiLoading[idx] || !(detail.achievements || '').trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-50 disabled:text-gray-400 text-blue-700 text-xs font-medium rounded-lg transition-all border border-blue-200 disabled:border-gray-200"
+                  >
+                    {aiLoading[idx] ? (
+                      <>
+                        <span className="animate-spin w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full inline-block" />
+                        AI 수정 중...
+                      </>
+                    ) : (
+                      <>
+                        <span>✦</span>
+                        AI로 수정하기
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <textarea
                 rows={4}
                 value={detail.achievements || ''}
@@ -131,6 +211,12 @@ export default function Step6CareerDetail({ formData, updateFormData, goNext, go
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-y"
                 placeholder="구체적인 성과를 작성해 주세요. (예: 매출 20% 증가, 시스템 응답시간 50% 개선)"
               />
+              {aiError[idx] && (
+                <p className="text-xs text-red-500 mt-1">{aiError[idx]}</p>
+              )}
+              {aiOriginal[idx] && (
+                <p className="text-xs text-green-600 mt-1">✓ AI가 수정했습니다. 내용을 확인하고 수정하세요.</p>
+              )}
             </div>
 
             {/* 사용 기술 (태그) */}

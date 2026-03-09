@@ -33,6 +33,13 @@ function getInitialFormData() {
       address: '',
       linkedinUrl: '',
       portfolioUrl: '',
+      photoData: '',
+      militaryStatus: '',
+      militaryBranch: '',
+      militaryStartDate: '',
+      militaryEndDate: '',
+      militaryRank: '',
+      militaryExemptionReason: '',
     },
     education: [
       {
@@ -52,6 +59,7 @@ function getInitialFormData() {
         endDate: '',
         isCurrent: false,
         description: '',
+        leaveReason: '',
       },
     ],
     competency: [

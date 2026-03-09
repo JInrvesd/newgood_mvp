@@ -79,6 +79,36 @@ export async function getAnalysisResult(uuid, version) {
 }
 
 /**
+ * POST /api/ai-edit/career - 경력기술서 AI 개선
+ * @param {string} text - 개선할 텍스트
+ * @returns {{ text: string }}
+ */
+export async function aiEditCareer(text) {
+  const res = await request('/api/ai-edit/career', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  })
+  return res.json()
+}
+
+/**
+ * POST /api/ai-edit/cover-letter - 자기소개서 AI 개선
+ * @param {string} text - 개선할 텍스트
+ * @param {'free'|'structured'} type - 양식 종류
+ * @param {string} [field] - structured 항목명 (growth, personality, motivation, aspiration)
+ * @returns {{ text: string }}
+ */
+export async function aiEditCoverLetter(text, type, field = null) {
+  const body = { text, type }
+  if (field) body.field = field
+  const res = await request('/api/ai-edit/cover-letter', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+/**
  * POST /api/resumes/:uuid/upload - docx 파일 업로드
  * @param {string} uuid
  * @param {File} file

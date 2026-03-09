@@ -1,6 +1,10 @@
+import { useState } from 'react'
+import { aiEditCoverLetter } from '../../services/api'
+
 /**
  * Step 7: 자기소개서
  * 자유 양식(단일 textarea) / 기존 양식(4개 섹션) 중 선택
+ * 각 섹션에 'AI로 수정하기' 버튼 포함
  */
 export default function Step7CoverLetter({
   formData,
@@ -11,6 +15,10 @@ export default function Step7CoverLetter({
 }) {
   const coverLetter = formData.coverLetter
   const mode = coverLetter.mode || 'structured'
+
+  const [aiLoading, setAiLoading] = useState({})
+  const [aiError, setAiError] = useState({})
+  const [aiOriginal, setAiOriginal] = useState({})
 
   const handleChange = (field, value) => {
     updateFormData('coverLetter', { ...coverLetter, [field]: value })
@@ -23,6 +31,31 @@ export default function Step7CoverLetter({
   const handleSubmit = (e) => {
     e.preventDefault()
     onSubmit()
+  }
+
+  const handleAiEdit = async (field, text) => {
+    if (!text.trim()) return
+    setAiLoading((prev) => ({ ...prev, [field]: true }))
+    setAiError((prev) => ({ ...prev, [field]: null }))
+
+    try {
+      const result = await aiEditCoverLetter(
+        text,
+        mode === 'free' ? 'free' : 'structured',
+        mode === 'structured' ? field : null
+      )
+      setAiOriginal((prev) => ({ ...prev, [field]: text }))
+      handleChange(field, result.text)
+    } catch (e) {
+      setAiError((prev) => ({ ...prev, [field]: 'AI 편집에 실패했습니다. 다시 시도해 주세요.' }))
+    } finally {
+      setAiLoading((prev) => ({ ...prev, [field]: false }))
+    }
+  }
+
+  const handleUndo = (field, originalValue) => {
+    handleChange(field, originalValue)
+    setAiOriginal((prev) => ({ ...prev, [field]: null }))
   }
 
   const structuredFields = [
@@ -100,9 +133,40 @@ export default function Step7CoverLetter({
       {/* 자유 양식 */}
       {mode === 'free' && (
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            자기소개서
-          </label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              자기소개서
+            </label>
+            <div className="flex items-center gap-2">
+              {aiOriginal['freeText'] && (
+                <button
+                  type="button"
+                  onClick={() => handleUndo('freeText', aiOriginal['freeText'])}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  되돌리기
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => handleAiEdit('freeText', coverLetter.freeText || '')}
+                disabled={aiLoading['freeText'] || !(coverLetter.freeText || '').trim()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-50 disabled:text-gray-400 text-blue-700 text-xs font-medium rounded-lg transition-all border border-blue-200 disabled:border-gray-200"
+              >
+                {aiLoading['freeText'] ? (
+                  <>
+                    <span className="animate-spin w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full inline-block" />
+                    AI 수정 중...
+                  </>
+                ) : (
+                  <>
+                    <span>✦</span>
+                    AI로 수정하기
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           <textarea
             rows={16}
             value={coverLetter.freeText || ''}
@@ -111,6 +175,14 @@ export default function Step7CoverLetter({
             className="w-full border border-gray-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-y"
             placeholder="자기소개서를 자유롭게 작성해 주세요. 형식에 구애받지 않고 작성하셔도 됩니다."
           />
+          {aiError['freeText'] && (
+            <p className="text-xs text-red-500 mt-1">{aiError['freeText']}</p>
+          )}
+          {aiOriginal['freeText'] && (
+            <p className="text-xs text-green-600 mt-1">
+              ✓ AI가 소제목과 두괄식 구조로 수정했습니다. 내용을 확인하고 수정하세요.
+            </p>
+          )}
           <div className="flex justify-end mt-1">
             <span
               className={`text-xs ${
@@ -134,9 +206,40 @@ export default function Step7CoverLetter({
 
           return (
             <div key={key} className="bg-white rounded-xl shadow-sm p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {label}
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  {label}
+                </label>
+                <div className="flex items-center gap-2">
+                  {aiOriginal[key] && (
+                    <button
+                      type="button"
+                      onClick={() => handleUndo(key, aiOriginal[key])}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline"
+                    >
+                      되돌리기
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleAiEdit(key, value)}
+                    disabled={aiLoading[key] || !value.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 disabled:bg-gray-50 disabled:text-gray-400 text-blue-700 text-xs font-medium rounded-lg transition-all border border-blue-200 disabled:border-gray-200"
+                  >
+                    {aiLoading[key] ? (
+                      <>
+                        <span className="animate-spin w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full inline-block" />
+                        AI 수정 중...
+                      </>
+                    ) : (
+                      <>
+                        <span>✦</span>
+                        AI로 수정하기
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <textarea
                 rows={6}
                 value={value}
@@ -145,6 +248,14 @@ export default function Step7CoverLetter({
                 className="w-full border border-gray-200 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-y"
                 placeholder={placeholder}
               />
+              {aiError[key] && (
+                <p className="text-xs text-red-500 mt-1">{aiError[key]}</p>
+              )}
+              {aiOriginal[key] && (
+                <p className="text-xs text-green-600 mt-1">
+                  ✓ AI가 두괄식으로 수정했습니다. 내용을 확인하고 수정하세요.
+                </p>
+              )}
               <div className="flex justify-end mt-1">
                 <span
                   className={`text-xs ${

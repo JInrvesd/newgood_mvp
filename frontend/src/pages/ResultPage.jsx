@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getAnalysisResult } from '../services/api'
-import ScoreBoard from '../components/Analysis/ScoreBoard'
 import SectionFeedback from '../components/Analysis/SectionFeedback'
 import KSASummary from '../components/Analysis/KSASummary'
 import ActionButtons from '../components/Analysis/ActionButtons'
@@ -80,9 +79,8 @@ export default function ResultPage() {
 
   // Extract result data with safe fallbacks
   const analysisData = result?.analysis?.result_data || {}
-  const score = analysisData.phase1 || {}
-  const feedback = analysisData.phase2 || {}
-  const ksa = analysisData.phase3 || {}
+  const feedback = analysisData.phase1 || {}
+  const ksa = analysisData.phase2 || {}
   const version = result?.analysis?.version || 1
 
   return (
@@ -105,9 +103,6 @@ export default function ResultPage() {
 
       {/* Result Content */}
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Score */}
-        <ScoreBoard score={score} />
-
         {/* Feedback */}
         <SectionFeedback feedback={feedback} />
 

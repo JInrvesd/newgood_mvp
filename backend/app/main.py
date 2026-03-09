@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
-from app.routers import resumes, analysis, download
+from app.routers import resumes, analysis, download, ai_edit
 
 settings = get_settings()
 
@@ -16,6 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.frontend_url,
+        settings.frontend_prod_url,
         settings.site_url,
         "http://localhost:5173",
         "http://localhost:5174",
@@ -30,6 +31,7 @@ app.add_middleware(
 app.include_router(resumes.router)
 app.include_router(analysis.router)
 app.include_router(download.router)
+app.include_router(ai_edit.router)
 
 
 @app.get("/health")

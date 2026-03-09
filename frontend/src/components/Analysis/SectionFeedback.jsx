@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 /**
  * 섹션별 피드백 아코디언 UI
- * - 각 섹션: 아이콘 + 제목 + 점수 + 피드백 내용
+ * - 각 섹션: 아이콘 + 제목 + 우선순위 + 피드백 내용
  * - 개선 전/후 비교 예시 (있을 경우)
  */
 export default function SectionFeedback({ feedback }) {
@@ -11,7 +11,7 @@ export default function SectionFeedback({ feedback }) {
   if (sections.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">섹션별 피드백</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">HR 전문가 피드백</h2>
         <p className="text-gray-500">아직 피드백 데이터가 없습니다.</p>
       </div>
     )
@@ -19,7 +19,8 @@ export default function SectionFeedback({ feedback }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-6">섹션별 피드백</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">HR 전문가 피드백</h2>
+      <p className="text-sm text-gray-500 mb-6">채용 담당자 관점에서 강점은 돋보이게, 약점은 보완 방법과 함께 안내합니다.</p>
       <div className="space-y-3">
         {sections.map((section, idx) => (
           <AccordionItem key={idx} section={section} />
@@ -32,10 +33,16 @@ export default function SectionFeedback({ feedback }) {
 function AccordionItem({ section }) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const getScoreColor = (score) => {
-    if (score >= 70) return 'text-green-600 bg-green-50'
-    if (score >= 40) return 'text-yellow-600 bg-yellow-50'
-    return 'text-red-600 bg-red-50'
+  const getPriorityStyle = (priority) => {
+    if (priority === 'high') return 'text-red-600 bg-red-50'
+    if (priority === 'medium') return 'text-yellow-600 bg-yellow-50'
+    return 'text-green-600 bg-green-50'
+  }
+
+  const getPriorityLabel = (priority) => {
+    if (priority === 'high') return '높음'
+    if (priority === 'medium') return '보통'
+    return '낮음'
   }
 
   return (
@@ -71,13 +78,13 @@ function AccordionItem({ section }) {
         </div>
 
         <div className="flex items-center gap-3">
-          {section.score !== undefined && (
+          {section.priority && (
             <span
-              className={`text-sm font-semibold px-2 py-0.5 rounded ${getScoreColor(
-                section.score
+              className={`text-xs font-semibold px-2 py-0.5 rounded ${getPriorityStyle(
+                section.priority
               )}`}
             >
-              {section.score}점
+              우선순위: {getPriorityLabel(section.priority)}
             </span>
           )}
           <svg

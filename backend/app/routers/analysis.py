@@ -8,7 +8,7 @@ router = APIRouter(prefix="/api/resumes", tags=["analysis"])
 
 @router.get("/{uuid}/analyze")
 async def analyze_resume(uuid: str):
-    """SSE 스트리밍으로 3단계 분석 실행"""
+    """SSE 스트리밍으로 2단계 분석 실행"""
     db = get_supabase()
 
     result = db.table("resumes").select("*").eq("id", uuid).single().execute()

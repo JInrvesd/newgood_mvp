@@ -109,9 +109,9 @@ class ResumeResponse(BaseModel):
 
 
 # ── Analysis Result ────────────────────────────────────────────
-class SectionScore(BaseModel):
+class SectionFeedback(BaseModel):
     section: str
-    score: int
+    priority: Optional[str] = None
     feedback: str
     improvements: Optional[List[str]] = []
     before_example: Optional[str] = None
@@ -119,18 +119,18 @@ class SectionScore(BaseModel):
 
 
 class Phase1Result(BaseModel):
-    total_score: int
-    section_scores: List[SectionScore]
-    summary: str
+    structured_resume: dict
+    detailed_feedback: List[SectionFeedback]
+    cover_letter_feedback: Optional[dict] = None
 
 
 class Phase2Result(BaseModel):
-    structured_resume: dict
-    detailed_feedback: List[SectionScore]
-    cover_letter_feedback: Optional[str] = None
-
-
-class Phase3Result(BaseModel):
     knowledge: List[str]
     skill: List[str]
     attitude: List[str]
+    knowledge_summary: Optional[str] = None
+    skill_summary: Optional[str] = None
+    attitude_summary: Optional[str] = None
+    strengths: Optional[List[str]] = []
+    weaknesses: Optional[List[str]] = []
+    summary: Optional[str] = None

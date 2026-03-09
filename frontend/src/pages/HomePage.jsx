@@ -97,9 +97,9 @@ export default function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h3 className="font-semibold text-gray-900">가시성 점수</h3>
+              <h3 className="font-semibold text-gray-900">AI 개선 제안</h3>
               <p className="text-sm text-gray-500 mt-1">
-                이력서 완성도를 점수로 확인
+                두괄식 구조화 + KPI 분석
               </p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5">

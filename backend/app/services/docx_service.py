@@ -3,6 +3,7 @@ python-docx 기반 이력서 DOCX 생성 서비스.
 form_data(7단계 폼)와 result_data(AI 분석 결과)를 받아 .docx 파일을 생성합니다.
 """
 
+import base64
 import io
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches, Cm
@@ -24,6 +25,49 @@ def _set_cell_bg(cell, hex_color: str):
     shd.set(qn("w:color"), "auto")
     shd.set(qn("w:fill"), hex_color)
     tcPr.append(shd)
+
+
+def _set_cell_width(cell, width_cm: float):
+    """셀 너비 설정 (cm 단위 → twips 변환)"""
+    twips = int(width_cm * 567.17)
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    for existing in tcPr.findall(qn("w:tcW")):
+        tcPr.remove(existing)
+    tcW = OxmlElement("w:tcW")
+    tcW.set(qn("w:w"), str(twips))
+    tcW.set(qn("w:type"), "dxa")
+    tcPr.append(tcW)
+
+
+def _remove_table_borders(table):
+    """테이블 외곽/내부 테두리 제거"""
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        tbl.insert(0, tblPr)
+    tblBorders = OxmlElement("w:tblBorders")
+    for side in ["top", "left", "bottom", "right", "insideH", "insideV"]:
+        border = OxmlElement(f"w:{side}")
+        border.set(qn("w:val"), "none")
+        tblBorders.append(border)
+    tblPr.append(tblBorders)
+
+
+def _add_photo_cell_border(cell):
+    """사진 셀에 라이트 블루 테두리 추가"""
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    tcBorders = OxmlElement("w:tcBorders")
+    for side in ["top", "left", "bottom", "right"]:
+        border = OxmlElement(f"w:{side}")
+        border.set(qn("w:val"), "single")
+        border.set(qn("w:sz"), "4")
+        border.set(qn("w:space"), "0")
+        border.set(qn("w:color"), "BFDBFE")
+        tcBorders.append(border)
+    tcPr.append(tcBorders)
 
 
 def _add_heading(doc: Document, text: str, level: int = 1):
@@ -85,13 +129,7 @@ def _add_body(doc: Document, text: str):
 def _render_personal(doc: Document, personal: dict):
     _add_heading(doc, "기본 정보")
     name = personal.get("name") or personal.get("이름", "")
-    if name:
-        p = doc.add_paragraph()
-        run = p.add_run(name)
-        run.bold = True
-        run.font.size = Pt(18)
-        run.font.color.rgb = RGBColor(0x11, 0x18, 0x27)
-        p.paragraph_format.space_after = Pt(4)
+    photo_data = personal.get("photoData", "") or ""
 
     fields = [
         ("생년월일", personal.get("birthDate") or personal.get("birth_date")),
@@ -101,8 +139,65 @@ def _render_personal(doc: Document, personal: dict):
         ("LinkedIn", personal.get("linkedinUrl") or personal.get("linkedin")),
         ("포트폴리오", personal.get("portfolioUrl") or personal.get("portfolio")),
     ]
-    for label, val in fields:
-        _add_label_value(doc, label, val or "")
+
+    if photo_data:
+        # 2열 테이블: 좌=개인정보(11.5cm), 우=사진(4.5cm)
+        table = doc.add_table(rows=1, cols=2)
+        _remove_table_borders(table)
+
+        left_cell = table.rows[0].cells[0]
+        right_cell = table.rows[0].cells[1]
+        _set_cell_width(left_cell, 11.5)
+        _set_cell_width(right_cell, 4.5)
+
+        # 좌측 셀: 이름
+        if name:
+            p = left_cell.paragraphs[0]
+            run = p.add_run(name)
+            run.bold = True
+            run.font.size = Pt(18)
+            run.font.color.rgb = RGBColor(0x11, 0x18, 0x27)
+        for label, val in fields:
+            if not val:
+                continue
+            p = left_cell.add_paragraph()
+            p.paragraph_format.space_before = Pt(1)
+            p.paragraph_format.space_after = Pt(1)
+            lr = p.add_run(f"{label}: ")
+            lr.bold = True
+            lr.font.size = Pt(10)
+            lr.font.color.rgb = RGBColor(0x6B, 0x72, 0x80)
+            vr = p.add_run(val)
+            vr.font.size = Pt(10)
+
+        # 우측 셀: 사진 박스
+        _add_photo_cell_border(right_cell)
+        _set_cell_bg(right_cell, "EFF6FF")
+        p = right_cell.paragraphs[0]
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        try:
+            data = photo_data
+            if data.startswith("data:"):
+                data = data.split(",", 1)[1]
+            image_bytes = base64.b64decode(data)
+            run = p.add_run()
+            run.add_picture(io.BytesIO(image_bytes), width=Cm(3.5))
+        except Exception as e:
+            print(f"[DocxService] 사진 렌더링 실패: {e}")
+            run = p.add_run("사 진")
+            run.font.color.rgb = RGBColor(0x93, 0xC5, 0xFD)
+            run.font.size = Pt(11)
+    else:
+        # 사진 없음 - 기존 방식
+        if name:
+            p = doc.add_paragraph()
+            run = p.add_run(name)
+            run.bold = True
+            run.font.size = Pt(18)
+            run.font.color.rgb = RGBColor(0x11, 0x18, 0x27)
+            p.paragraph_format.space_after = Pt(4)
+        for label, val in fields:
+            _add_label_value(doc, label, val or "")
 
 
 def _render_education(doc: Document, education: list):

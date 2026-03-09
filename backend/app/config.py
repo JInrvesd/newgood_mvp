@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     supabase_storage_bucket: str = "resume-files"
     site_url: str = "https://newgood.co.kr"
     frontend_url: str = "http://localhost:5173"
+    frontend_prod_url: str = "https://newgood-mvp.vercel.app"
     port: int = 8000
     environment: str = "development"
 

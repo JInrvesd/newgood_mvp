@@ -1,6 +1,24 @@
 from docx import Document
+import base64
 import io
 import re
+
+
+def _extract_photo_from_docx(doc) -> str:
+    """DOCX에서 첫 번째 이미지(JPEG/PNG)를 base64 data URL로 추출."""
+    for rel in doc.part.rels.values():
+        if not hasattr(rel, "target_part"):
+            continue
+        try:
+            content_type = rel.target_part.content_type
+            if any(t in content_type for t in ["jpeg", "png", "jpg"]):
+                image_bytes = rel.target_part.blob
+                ext = "jpeg" if "jpeg" in content_type or "jpg" in content_type else "png"
+                b64 = base64.b64encode(image_bytes).decode("utf-8")
+                return f"data:image/{ext};base64,{b64}"
+        except Exception:
+            continue
+    return ""
 
 
 def parse_docx_to_form_data(file_bytes: bytes) -> dict:
@@ -10,6 +28,7 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
     LLM이 이후 정제.
     """
     doc = Document(io.BytesIO(file_bytes))
+    photo_data = _extract_photo_from_docx(doc)
 
     full_text = []
     for para in doc.paragraphs:
@@ -33,6 +52,7 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
             "address": "",
             "linkedinUrl": _extract_linkedin(raw_text),
             "portfolioUrl": "",
+            "photoData": photo_data,
         },
         "education": [],
         "experience": [],

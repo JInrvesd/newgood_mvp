@@ -45,3 +45,7 @@ desktop.ini
 # 업로드 임시파일
 *.docx.tmp
 uploads/
+
+# 테스트 파일
+*_test.docx
+test_*.docx

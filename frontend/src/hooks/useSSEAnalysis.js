@@ -3,9 +3,8 @@ import { useState, useCallback, useRef } from 'react'
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 const INITIAL_PHASES = [
-  { id: 1, name: '가시성 점수 분석', status: 'pending', data: null },
-  { id: 2, name: '상세 피드백 & 구조화', status: 'pending', data: null },
-  { id: 3, name: 'KSA 역량 정리', status: 'pending', data: null },
+  { id: 1, name: '상세 피드백 & 구조화', status: 'pending', data: null },
+  { id: 2, name: 'KSA 역량 분석', status: 'pending', data: null },
 ]
 
 /**
