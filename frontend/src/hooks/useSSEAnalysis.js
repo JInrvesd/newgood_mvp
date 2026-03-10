@@ -82,12 +82,18 @@ export default function useSSEAnalysis() {
       eventSourceRef.current = null
     })
 
+    // C4: 통합 error 핸들러 (서버 전송 에러 + 네이티브 연결 에러 모두 처리)
     es.addEventListener('error', (e) => {
+      // 이미 닫힌 연결의 에러는 무시
+      if (es.readyState === EventSource.CLOSED) return
+
       try {
         if (e.data) {
+          // 서버가 보낸 에러 이벤트 (event: error\ndata: {...})
           const data = JSON.parse(e.data)
           setError(data.message || '분석 중 오류가 발생했습니다.')
         } else {
+          // 네이티브 연결 에러 (네트워크 끊김 등)
           setError('서버 연결이 끊어졌습니다. 다시 시도해 주세요.')
         }
       } catch {
@@ -97,12 +103,7 @@ export default function useSSEAnalysis() {
       eventSourceRef.current = null
     })
 
-    es.onerror = () => {
-      if (es.readyState === EventSource.CLOSED) return
-      setError('서버 연결이 끊어졌습니다. 다시 시도해 주세요.')
-      es.close()
-      eventSourceRef.current = null
-    }
+    // C4: es.onerror 제거 — addEventListener('error')에서 통합 처리
   }, [])
 
   const cancelAnalysis = useCallback(() => {

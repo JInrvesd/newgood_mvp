@@ -94,11 +94,16 @@ class EditResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+MAX_EDIT_TEXT_LENGTH = 10000
+
+
 @router.post("/career", response_model=EditResponse)
 async def ai_edit_career(payload: CareerEditRequest):
     """경력기술서 주요 성과 AI 개선"""
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="텍스트가 비어 있습니다")
+    if len(payload.text) > MAX_EDIT_TEXT_LENGTH:
+        raise HTTPException(status_code=400, detail=f"텍스트는 {MAX_EDIT_TEXT_LENGTH}자 이하여야 합니다")
 
     user_content = f"다음 경력 기술 내용을 개선해 주세요:\n\n{payload.text}"
 
@@ -118,6 +123,8 @@ async def ai_edit_cover_letter(payload: CoverLetterEditRequest):
     """자기소개서 AI 개선"""
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="텍스트가 비어 있습니다")
+    if len(payload.text) > MAX_EDIT_TEXT_LENGTH:
+        raise HTTPException(status_code=400, detail=f"텍스트는 {MAX_EDIT_TEXT_LENGTH}자 이하여야 합니다")
 
     if payload.type == "free":
         system_prompt = _COVER_FREE_SYSTEM

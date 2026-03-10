@@ -6,7 +6,7 @@ form_data(7단계 폼)와 result_data(AI 분석 결과)를 받아 .docx 파일�
 import base64
 import io
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -197,7 +197,8 @@ def _render_personal(doc: Document, personal: dict):
             run.font.color.rgb = RGBColor(0x11, 0x18, 0x27)
             p.paragraph_format.space_after = Pt(4)
         for label, val in fields:
-            _add_label_value(doc, label, val or "")
+            if val:
+                _add_label_value(doc, label, val)
 
 
 def _render_education(doc: Document, education: list):
@@ -446,8 +447,8 @@ async def generate_docx(form_data: dict, result_data: dict) -> bytes:
     _render_cover_letter(doc, cover_letter)
 
     # AI 개선 제안이 있으면 부록으로 추가
-    phase2 = result_data.get("phase2", {})
-    structured = phase2.get("structured_resume", {})
+    phase1 = result_data.get("phase1", {})
+    structured = phase1.get("structured_resume", {})
     highlights = structured.get("experience_highlights", [])
     if highlights:
         _add_heading(doc, "[AI 개선 제안] 경력 기술 개선안")

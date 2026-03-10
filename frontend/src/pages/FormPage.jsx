@@ -128,20 +128,26 @@ export default function FormPage() {
       .catch(() => {})
   }, [editUuid])
 
-  // Auto-save to localStorage on formData change
+  // M5: 디바운스된 localStorage 자동 저장 (500ms)
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(formData))
-    } catch {
-      // ignore storage errors
-    }
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(formData))
+      } catch {
+        // ignore storage errors (e.g. QuotaExceededError)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
   }, [formData])
 
-  // Sync careerDetails with experience entries
+  // H8: careerDetails를 experience 엔트리와 companyName 기반으로 동기화
   useEffect(() => {
     setFormData((prev) => {
-      const newDetails = prev.experience.map((exp, idx) => {
-        const existing = prev.careerDetails[idx] || {}
+      const newDetails = prev.experience.map((exp) => {
+        // companyName으로 기존 careerDetail 매칭
+        const existing = prev.careerDetails.find(
+          (d) => d.companyName && d.companyName === exp.companyName
+        ) || {}
         return {
           companyName: exp.companyName,
           achievements: existing.achievements || '',

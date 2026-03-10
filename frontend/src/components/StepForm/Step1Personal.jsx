@@ -60,8 +60,12 @@ export default function Step1Personal({ formData, updateFormData, goNext }) {
           <div className="flex items-center gap-4">
             {/* 사진 미리보기 or 빈 박스 */}
             <div
+              role="button"
+              tabIndex={0}
+              aria-label="증명사진 업로드"
               className="w-24 h-32 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all"
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
             >
               {personal.photoData ? (
                 <img

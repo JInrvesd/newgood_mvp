@@ -1,10 +1,12 @@
 import { useState, useRef } from 'react'
 import { uploadDocx } from '../../services/api'
+import ImageSelectModal from './ImageSelectModal'
 
 /**
  * 드래그앤드롭 + 클릭 업로드 컴포넌트
  * - .docx 파일만 허용
  * - 업로드 후 파싱 중 로딩 표시
+ * - 이미지 2개 이상 시 선택 모달 표시
  * - 파싱 완료 시 onComplete 콜백
  */
 export default function DocxUploader({ onComplete }) {
@@ -12,6 +14,8 @@ export default function DocxUploader({ onComplete }) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState(null)
   const [fileName, setFileName] = useState(null)
+  const [pendingResult, setPendingResult] = useState(null)
+  const [extractedImages, setExtractedImages] = useState([])
   const inputRef = useRef(null)
 
   const validateFile = (file) => {
@@ -41,12 +45,39 @@ export default function DocxUploader({ onComplete }) {
 
     try {
       const result = await uploadDocx(file)
-      onComplete(result.form_data, result.uuid)
+      const images = result.extracted_images || []
+
+      if (images.length >= 2) {
+        // 이미지가 2개 이상이면 선택 모달 표시
+        setPendingResult(result)
+        setExtractedImages(images)
+      } else {
+        // 이미지 0~1개: 바로 진행
+        onComplete(result.form_data, result.uuid)
+      }
     } catch (err) {
       setError(err.message || '파일 업로드에 실패했습니다.')
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleImageSelect = (imageDataUrl) => {
+    if (!pendingResult) return
+    const formData = { ...pendingResult.form_data }
+    formData.personal = { ...formData.personal, photoData: imageDataUrl }
+    setPendingResult(null)
+    setExtractedImages([])
+    onComplete(formData, pendingResult.uuid)
+  }
+
+  const handleImageSkip = () => {
+    if (!pendingResult) return
+    const formData = { ...pendingResult.form_data }
+    formData.personal = { ...formData.personal, photoData: '' }
+    setPendingResult(null)
+    setExtractedImages([])
+    onComplete(formData, pendingResult.uuid)
   }
 
   const handleDrop = (e) => {
@@ -144,6 +175,15 @@ export default function DocxUploader({ onComplete }) {
         <p className="mt-2 text-sm text-red-500" role="alert">
           {error}
         </p>
+      )}
+
+      {/* 이미지 선택 모달 */}
+      {extractedImages.length >= 2 && (
+        <ImageSelectModal
+          images={extractedImages}
+          onSelect={handleImageSelect}
+          onSkip={handleImageSkip}
+        />
       )}
     </div>
   )

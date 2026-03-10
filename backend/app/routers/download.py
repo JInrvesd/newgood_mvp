@@ -1,13 +1,15 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 from fastapi.responses import Response
 from app.db.supabase_client import get_supabase
 from app.services.docx_service import generate_docx
 
 router = APIRouter(prefix="/api/resumes", tags=["download"])
 
+UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+
 
 @router.get("/{uuid}/download")
-async def download_docx(uuid: str):
+async def download_docx(uuid: str = Path(..., pattern=UUID_PATTERN)):
     """분석 결과 기반 DOCX 다운로드"""
     db = get_supabase()
 

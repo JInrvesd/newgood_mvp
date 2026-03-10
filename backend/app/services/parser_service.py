@@ -4,8 +4,12 @@ import io
 import re
 
 
-def _extract_photo_from_docx(doc) -> str:
-    """DOCX에서 첫 번째 이미지(JPEG/PNG)를 base64 data URL로 추출."""
+MAX_EXTRACTED_IMAGES = 20
+
+
+def _extract_all_images_from_docx(doc) -> list:
+    """DOCX에서 모든 이미지(JPEG/PNG)를 base64 data URL 리스트로 추출. (최대 20개)"""
+    images = []
     for rel in doc.part.rels.values():
         if not hasattr(rel, "target_part"):
             continue
@@ -15,10 +19,12 @@ def _extract_photo_from_docx(doc) -> str:
                 image_bytes = rel.target_part.blob
                 ext = "jpeg" if "jpeg" in content_type or "jpg" in content_type else "png"
                 b64 = base64.b64encode(image_bytes).decode("utf-8")
-                return f"data:image/{ext};base64,{b64}"
+                images.append(f"data:image/{ext};base64,{b64}")
+                if len(images) >= MAX_EXTRACTED_IMAGES:
+                    break
         except Exception:
             continue
-    return ""
+    return images
 
 
 def parse_docx_to_form_data(file_bytes: bytes) -> dict:
@@ -28,7 +34,8 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
     LLM이 이후 정제.
     """
     doc = Document(io.BytesIO(file_bytes))
-    photo_data = _extract_photo_from_docx(doc)
+    all_images = _extract_all_images_from_docx(doc)
+    photo_data = all_images[0] if all_images else ""
 
     full_text = []
     for para in doc.paragraphs:
@@ -72,14 +79,20 @@ def parse_docx_to_form_data(file_bytes: bytes) -> dict:
             "aspiration": "",
         },
         "_raw_text": raw_text,
+        "_extracted_images": all_images,
     }
 
 
 def _extract_name(text: str) -> str:
-    """첫 번째 줄에서 한국어 이름(2~4글자 한글) 추출 시도"""
+    """한국어 이름(2~5글자 한글) 추출 시도. '이름:' 접두사 패턴도 지원."""
     for line in text.splitlines():
         line = line.strip()
-        if re.fullmatch(r'[가-힣]{2,4}', line):
+        # "이름: 홍길동" 패턴
+        m = re.match(r'이름\s*[:：]\s*([가-힣]{2,5})', line)
+        if m:
+            return m.group(1)
+        # 단독 이름 (2~5자 한글)
+        if re.fullmatch(r'[가-힣]{2,5}', line):
             return line
     return ""
 

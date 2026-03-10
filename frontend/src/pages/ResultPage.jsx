@@ -83,6 +83,10 @@ export default function ResultPage() {
   const ksa = analysisData.phase2 || {}
   const version = result?.analysis?.version || 1
 
+  // H10: cover_letter_feedback & structured_resume 추출
+  const coverLetterFeedback = feedback.cover_letter_feedback || null
+  const structuredResume = feedback.structured_resume || null
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -103,8 +107,62 @@ export default function ResultPage() {
 
       {/* Result Content */}
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* H10: 프로필 요약 (structured_resume) */}
+        {structuredResume?.personal?.summary_statement && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-3">AI 프로필 요약</h2>
+            <p className="text-gray-700 leading-relaxed">
+              {structuredResume.personal.summary_statement}
+            </p>
+            {structuredResume.skill_categories && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(structuredResume.skill_categories.technical || []).map((s, i) => (
+                  <span key={`t-${i}`} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">{s}</span>
+                ))}
+                {(structuredResume.skill_categories.tools || []).map((s, i) => (
+                  <span key={`tool-${i}`} className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">{s}</span>
+                ))}
+                {(structuredResume.skill_categories.soft || []).map((s, i) => (
+                  <span key={`s-${i}`} className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm">{s}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Feedback */}
         <SectionFeedback feedback={feedback} />
+
+        {/* H10: 자기소개서 피드백 */}
+        {coverLetterFeedback && coverLetterFeedback.overall !== '자기소개서가 제공되지 않았습니다' && (
+          <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
+            <h2 className="text-xl font-bold text-gray-900">자기소개서 피드백</h2>
+            {coverLetterFeedback.overall && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">전반 평가</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{coverLetterFeedback.overall}</p>
+              </div>
+            )}
+            {coverLetterFeedback.structure && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">구조 개선</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{coverLetterFeedback.structure}</p>
+              </div>
+            )}
+            {coverLetterFeedback.content && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">내용 개선</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{coverLetterFeedback.content}</p>
+              </div>
+            )}
+            {coverLetterFeedback.improved_opening && (
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-blue-700 mb-1">개선된 첫 문단 제안</h3>
+                <p className="text-sm text-blue-800 leading-relaxed">{coverLetterFeedback.improved_opening}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* KSA */}
         <KSASummary ksa={ksa} />

@@ -1,11 +1,15 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Path, Query
 from app.models.schemas import ResumeCreate, ResumeUpdate
 from app.db.supabase_client import get_supabase
 from app.services.parser_service import parse_docx_to_form_data
 from app.services.llm_service import parse_resume_with_llm
+from typing import Optional
 import uuid as uuid_lib
 
 router = APIRouter(prefix="/api/resumes", tags=["resumes"])
+
+UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 @router.post("", status_code=201)
@@ -34,12 +38,22 @@ async def upload_docx(file: UploadFile = File(...)):
     if not (file.filename or "").endswith(".docx"):
         raise HTTPException(status_code=400, detail=".docx 파일만 업로드 가능합니다")
 
-    contents = await file.read()
-    if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다")
+    # C2: 파일 크기를 청크 단위로 읽으며 제한 (메모리 고갈 방지)
+    chunks = []
+    total_size = 0
+    while True:
+        chunk = await file.read(8192)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=400, detail="파일 크기는 10MB 이하여야 합니다")
+        chunks.append(chunk)
+    contents = b"".join(chunks)
 
     # 1차: 기본 텍스트 추출 (regex)
     basic_data = parse_docx_to_form_data(contents)
+    extracted_images = basic_data.pop("_extracted_images", [])
 
     # 2차: LLM 구조화 파싱 (실패 시 기본 데이터 사용)
     llm_data = await parse_resume_with_llm(basic_data["_raw_text"])
@@ -52,16 +66,25 @@ async def upload_docx(file: UploadFile = File(...)):
             personal["email"] = basic_data["personal"]["email"]
         if not personal.get("linkedinUrl") and basic_data["personal"].get("linkedinUrl"):
             personal["linkedinUrl"] = basic_data["personal"]["linkedinUrl"]
+        # 이미지가 1개면 자동 설정, 2개 이상이면 프론트에서 선택
+        if len(extracted_images) == 1:
+            personal["photoData"] = extracted_images[0]
         llm_data["personal"] = personal
         form_data = llm_data
     else:
+        # 이미지가 2개 이상이면 자동 설정된 첫번째 이미지 제거 (프론트에서 선택)
+        if len(extracted_images) > 1:
+            basic_data["personal"]["photoData"] = ""
         form_data = basic_data
 
-    return {"form_data": form_data, "uuid": None}
+    # H1: 내부 필드를 응답에서 제거
+    form_data.pop("_raw_text", None)
+
+    return {"form_data": form_data, "uuid": None, "extracted_images": extracted_images}
 
 
 @router.get("/{uuid}")
-async def get_resume(uuid: str):
+async def get_resume(uuid: str = Path(..., pattern=UUID_PATTERN)):
     """이력서 조회"""
     db = get_supabase()
     result = db.table("resumes").select("*").eq("id", uuid).single().execute()
@@ -73,7 +96,7 @@ async def get_resume(uuid: str):
 
 
 @router.patch("/{uuid}")
-async def update_resume(uuid: str, payload: ResumeUpdate):
+async def update_resume(uuid: str = Path(..., pattern=UUID_PATTERN), payload: ResumeUpdate = ...):
     """이력서 수정"""
     db = get_supabase()
 
@@ -87,22 +110,25 @@ async def update_resume(uuid: str, payload: ResumeUpdate):
 
 
 @router.get("/{uuid}/result")
-async def get_analysis_result(uuid: str):
-    """최신 분석 결과 조회"""
+async def get_analysis_result(
+    uuid: str = Path(..., pattern=UUID_PATTERN),
+    version: Optional[int] = Query(None, ge=1, le=5),
+):
+    """분석 결과 조회 (version 미지정 시 최신)"""
     db = get_supabase()
 
     resume = db.table("resumes").select("*").eq("id", uuid).single().execute()
     if not resume.data:
         raise HTTPException(status_code=404, detail="이력서를 찾을 수 없습니다")
 
-    analysis = (
-        db.table("analysis_results")
-        .select("*")
-        .eq("resume_id", uuid)
-        .order("version", desc=True)
-        .limit(1)
-        .execute()
-    )
+    query = db.table("analysis_results").select("*").eq("resume_id", uuid)
+    if version is not None:
+        # M1: version 파라미터 지원
+        query = query.eq("version", version)
+    else:
+        query = query.order("version", desc=True)
+    query = query.limit(1)
+    analysis = query.execute()
 
     return {
         "resume": resume.data,

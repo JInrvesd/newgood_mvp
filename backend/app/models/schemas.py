@@ -3,6 +3,10 @@ from typing import Optional, List
 from datetime import datetime
 
 
+# NOTE: 아래 모델들은 참고용 스키마입니다. 실제 form_data는 프론트엔드 camelCase를
+# 그대로 JSONB에 저장하므로 ResumeCreate/ResumeUpdate가 dict로 받습니다.
+# (예: birthDate, schoolName, startDate 등 camelCase 키 사용)
+
 # ── Personal Info ──────────────────────────────────────────────
 class PersonalInfo(BaseModel):
     name: str = ""

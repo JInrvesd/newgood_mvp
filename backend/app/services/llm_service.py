@@ -292,7 +292,8 @@ PARSE_SYSTEM_PROMPT = """\
       "startDate": "",
       "endDate": "",
       "isCurrent": false,
-      "description": ""
+      "description": "",
+      "leaveReason": ""
     }
   ],
   "competency": [
@@ -329,6 +330,7 @@ PHASE_CONFIGS = [
         "estimated_seconds": 25,
         "timeout_seconds": 90,
         "system_prompt": PHASE1_SYSTEM_PROMPT,
+        "max_tokens": 7000,
     },
     {
         "phase": 2,
@@ -336,6 +338,7 @@ PHASE_CONFIGS = [
         "estimated_seconds": 20,
         "timeout_seconds": 60,
         "system_prompt": PHASE2_SYSTEM_PROMPT,
+        "max_tokens": 4000,
     },
 ]
 
@@ -348,6 +351,7 @@ async def call_openrouter(
     system_prompt: str,
     user_content: str,
     timeout_seconds: float = 60.0,
+    max_tokens: int = 4000,
 ) -> str:
     """
     OpenRouter API 호출 (non-streaming, JSON 응답).
@@ -356,6 +360,7 @@ async def call_openrouter(
         system_prompt: 시스템 프롬프트
         user_content: 사용자 메시지 (이력서 데이터 등)
         timeout_seconds: HTTP 요청 타임아웃 (초)
+        max_tokens: 최대 응답 토큰 수
 
     Returns:
         LLM 응답 텍스트 (JSON 문자열)
@@ -380,7 +385,7 @@ async def call_openrouter(
                     {"role": "user", "content": user_content},
                 ],
                 "temperature": 0.3,
-                "max_tokens": 4000,
+                "max_tokens": max_tokens,
             },
         )
         response.raise_for_status()
@@ -418,13 +423,19 @@ def extract_json(text: str) -> dict:
     except json.JSONDecodeError:
         pass
 
-    # 3차 시도: 정규식으로 JSON 객체 추출
+    # 3차 시도: 정규식으로 JSON 객체 추출 (greedy → 실패 시 non-greedy)
     match = re.search(r"\{[\s\S]*\}", text)
     if match:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
             pass
+    # non-greedy로 재시도
+    for m in re.finditer(r"\{[\s\S]*?\}", text):
+        try:
+            return json.loads(m.group())
+        except json.JSONDecodeError:
+            continue
 
     # 모든 시도 실패 시 예외
     raise json.JSONDecodeError(
@@ -561,6 +572,12 @@ async def analyze_resume_stream(
 
     accumulated_result = {}
 
+    # M12: LLM에 보낼 때 불필요한 대용량 필드 제거
+    sanitized_form_data = {k: v for k, v in form_data.items() if not k.startswith("_")}
+    if "personal" in sanitized_form_data:
+        personal_copy = {k: v for k, v in sanitized_form_data["personal"].items() if k != "photoData"}
+        sanitized_form_data["personal"] = personal_copy
+
     for config in PHASE_CONFIGS:
         phase_num = config["phase"]
         phase_name = config["name"]
@@ -578,7 +595,7 @@ async def analyze_resume_stream(
 
         try:
             # 유저 프롬프트 구성 (Phase별로 다른 컨텍스트 제공)
-            form_data_str = json.dumps(form_data, ensure_ascii=False, indent=2)
+            form_data_str = json.dumps(sanitized_form_data, ensure_ascii=False, indent=2)
 
             if phase_num == 1:
                 user_content = (
@@ -600,6 +617,7 @@ async def analyze_resume_stream(
                 system_prompt=config["system_prompt"],
                 user_content=user_content,
                 timeout_seconds=config["timeout_seconds"],
+                max_tokens=config.get("max_tokens", 4000),
             )
 
             # JSON 파싱
@@ -641,6 +659,11 @@ async def analyze_resume_stream(
                 "잠시 후 다시 시도해주세요."
             )
             print(f"[LLM] Phase {phase_num} 타임아웃: {error_msg}")
+            # C3: 에러 시 상태 복구
+            try:
+                db.table("resumes").update({"status": "draft"}).eq("id", uuid).execute()
+            except Exception:
+                pass
             yield {
                 "event": "error",
                 "data": {
@@ -671,6 +694,11 @@ async def analyze_resume_stream(
                 f"[LLM] Phase {phase_num} HTTP 에러: "
                 f"status={status_code}, body={e.response.text[:500]}, msg={error_msg}"
             )
+            # C3: 에러 시 상태 복구
+            try:
+                db.table("resumes").update({"status": "draft"}).eq("id", uuid).execute()
+            except Exception:
+                pass
             yield {
                 "event": "error",
                 "data": {
@@ -686,6 +714,11 @@ async def analyze_resume_stream(
                 f"[LLM] Phase {phase_num} 예외: {error_msg}\n"
                 f"{traceback.format_exc()}"
             )
+            # C3: 에러 시 상태 복구
+            try:
+                db.table("resumes").update({"status": "draft"}).eq("id", uuid).execute()
+            except Exception:
+                pass
             yield {
                 "event": "error",
                 "data": {
@@ -748,6 +781,7 @@ async def parse_resume_with_llm(raw_text: str) -> dict:
             timeout_seconds=60.0,
         )
         parsed = extract_json(raw_response)
+        # _raw_text는 upload_docx에서 LLM 파싱 후 제거됨
         parsed["_raw_text"] = raw_text
         return parsed
     except Exception as e:

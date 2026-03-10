@@ -1,12 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 async function request(url, options = {}) {
+  // L2: body가 문자열(JSON)일 때만 Content-Type 자동 설정
+  const headers = { ...options.headers }
+  if (typeof options.body === 'string') {
+    headers['Content-Type'] = headers['Content-Type'] || 'application/json'
+  }
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
     ...options,
+    headers,
   })
 
   if (!res.ok) {
