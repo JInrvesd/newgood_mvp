@@ -234,6 +234,40 @@ def _render_education(doc: Document, education: list):
             _add_label_value(doc, "학점", gpa)
 
 
+def _calc_duration(start: str, end: str, is_current: bool) -> str:
+    """경력 기간을 계산하여 'X년 Y개월' 형식으로 반환"""
+    if not start:
+        return ""
+    try:
+        from datetime import date
+        s_parts = start.split("-")
+        s_year, s_month = int(s_parts[0]), int(s_parts[1]) if len(s_parts) > 1 else 1
+
+        if is_current:
+            today = date.today()
+            e_year, e_month = today.year, today.month
+        elif end:
+            e_parts = end.split("-")
+            e_year, e_month = int(e_parts[0]), int(e_parts[1]) if len(e_parts) > 1 else 1
+        else:
+            return ""
+
+        months = (e_year - s_year) * 12 + (e_month - s_month)
+        if months < 0:
+            return ""
+        years = months // 12
+        remain = months % 12
+        if years == 0 and remain == 0:
+            return "1개월 미만"
+        if years == 0:
+            return f"{remain}개월"
+        if remain == 0:
+            return f"{years}년"
+        return f"{years}년 {remain}개월"
+    except Exception:
+        return ""
+
+
 def _render_experience(doc: Document, experience: list, career_details: list = None):
     if not experience:
         return
@@ -252,11 +286,19 @@ def _render_experience(doc: Document, experience: list, career_details: list = N
         is_current = exp.get("isCurrent") or exp.get("is_current", False)
         description = exp.get("description", "")
 
+        # 기간 계산
+        duration = _calc_duration(start, end, is_current)
+
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(6)
         run = p.add_run(company)
         run.bold = True
         run.font.size = Pt(11)
+        # 회사명 옆에 근무 기간 표시
+        if duration:
+            dur_run = p.add_run(f"  ({duration})")
+            dur_run.font.size = Pt(9)
+            dur_run.font.color.rgb = RGBColor(0x25, 0x63, 0xEB)
 
         if position:
             _add_label_value(doc, "직위", position)
