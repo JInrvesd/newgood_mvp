@@ -34,12 +34,6 @@ function getInitialFormData() {
       linkedinUrl: '',
       portfolioUrl: '',
       photoData: '',
-      militaryStatus: '',
-      militaryBranch: '',
-      militaryStartDate: '',
-      militaryEndDate: '',
-      militaryRank: '',
-      militaryExemptionReason: '',
     },
     education: [
       {
